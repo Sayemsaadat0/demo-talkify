@@ -1,0 +1,129 @@
+create api in api ts with my given enpoitens
+then create Hooks for each to get the data 
+structure the data as i am giving
+
+1.
+title - Records api
+Endpoints - /api/frontend/merchant/getRecords
+data-structure - {
+    "status": true,
+    "message": "Success",
+    "data": {
+        "unAnsweredChat": "0",
+        "answerChat": "0",
+        "closeChat": "0",
+        "savedKb": "0",
+        "savePersonalNote": "0",
+        "savedContact": "0",
+        "todayVisitors": "0",
+        "yesterdayVisitors": "0",
+        "savedVisitors": "0",
+        "pendingTicket": "0",
+        "openTicket": "0",
+        "closeTicket": "0",
+        "totalProperty": "0",
+        "totalMembers": "0",
+        "totalVisitors": "0"
+    }
+}
+
+2. 
+title - chart inbox movment api
+endpoiints- /api/frontend/merchant/chartInboxMovements
+structure :  {
+    "status": true,
+    "message": "Success",
+    "data": {
+        "dates": [],
+        "answered": [],
+        "closed": [],
+        "unAnswered": []
+    }
+}
+
+3. 
+title - chart inbox statement
+endpoiints : /api/frontend/merchant/chartInboxStatement
+structure : {
+    "status": true,
+    "message": "Success",
+    "data": {
+        "months": [
+            "September",
+            "October",
+            "November",
+            "December",
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August"
+        ],
+        "answered": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "closed": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    }
+}
+
+4. 
+title- remail plan api
+endpoiints: /api/frontend/merchant/remainPlan
+structure : {
+    "status": true,
+    "message": "Success",
+    "data": {
+        "remainProperty": 0,
+        "totalProperty": 0,
+        "percentProperty": 0,
+        "remainMembers": 0,
+        "totalMember": 0,
+        "percentMember": 0,
+        "remainVisitors": 0,
+        "totalVisitors": 0,
+        "percentVisitor": 0,
+        "remainKb": 0,
+        "totalKb": 0,
+        "percentKb": 0
+    }
+}
+
+
+5. 
+title : get monitor api
+endpoiints: /api/frontend/merchant/getMonitors
+structure : {
+    "status": true,
+    "message": "Success",
+    "data": {
+        "count": 0,
+        "chat": []
+    }
+}
