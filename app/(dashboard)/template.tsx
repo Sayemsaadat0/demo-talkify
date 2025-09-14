@@ -10,9 +10,8 @@ import { useRouter } from "next/navigation"
 
 const Template = ({ children }: { children: React.ReactNode }) => {
     const isCollapsed = useSelector((state: RootState) => state.layout.isSidebarCollapsed)
-    const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+    const { isAuthenticated  } = useSelector((state: RootState) => state.auth);
     const router = useRouter();
-
     if (!isAuthenticated) {
         router.push('/login');
     }

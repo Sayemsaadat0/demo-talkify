@@ -262,7 +262,9 @@ export const ChatBox = ({
   setSelectedMessage,
   setSelectedChatData,
   setMobileView,
-  setStatus
+  setStatus,
+  // Message tracking
+  markMessageAsSent
 }: {
   selectedChatData: InboxChatItemType | null;
   singleChatData: SingleChatData | undefined;
@@ -275,6 +277,8 @@ export const ChatBox = ({
   setSelectedChatData: React.Dispatch<React.SetStateAction<InboxChatItemType | null>>;
   setMobileView: React.Dispatch<React.SetStateAction<'chatList' | 'chatBox' | 'userDetails'>>;
   setStatus: React.Dispatch<React.SetStateAction<'all' | 'unanswered' | 'answered' | 'closed' | 'read'>>;
+  // Message tracking
+  markMessageAsSent?: (messageText: string) => void;
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const token = useSelector((state: RootState) => state?.auth?.token);
@@ -284,15 +288,13 @@ export const ChatBox = ({
   const [isSending, setIsSending] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const [localMessages, setLocalMessages] = useState<ChatDetail[]>([]);
   const [hasText, setHasText] = useState(false); // Track if textarea has content
-  const { sendWSMessage, switchToChat } = useSocket();
+  const { sendWSMessage } = useSocket();
 
-  // Memoize the combined message list to prevent unnecessary re-renders
+  // Use messages directly from singleChatData (now includes real-time updates)
   const allMessages = useMemo(() => {
-    if (!singleChatData?.chat?.chat_details) return localMessages;
-    return [...singleChatData.chat.chat_details, ...localMessages];
-  }, [singleChatData?.chat?.chat_details, localMessages]);
+    return singleChatData?.chat?.chat_details || [];
+  }, [singleChatData?.chat?.chat_details]);
 
   const scrollToBottom = useCallback((smooth = false) => {
     if (messagesEndRef.current) {
@@ -468,26 +470,8 @@ export const ChatBox = ({
 
     setIsSending(true);
 
-    // Create local message immediately for real-time display
-    const tempMessage: ChatDetail = {
-      id: Date.now(), // Temporary ID
-      property_id: selectedChatData.property_id,
-      chat_id: selectedChatData.id,
-      name: null,
-      contact: null,
-      message: messageText,
-      link: null,
-      file: null,
-      status: 1,
-      type: 'admin', // Mark as admin message
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      file_count: 0,
-      file_list: []
-    };
-
-    // Add to local messages immediately
-    setLocalMessages(prev => [...prev, tempMessage]);
+    // Mark message as sent to prevent duplicates
+    markMessageAsSent?.(messageText);
 
     // Clear the input immediately
     if (textareaRef.current) {
@@ -496,10 +480,13 @@ export const ChatBox = ({
     }
     setHasText(false); // Reset hasText state
 
-    // Scroll to bottom immediately
-    setTimeout(() => scrollToBottom(true), 100);
-
     try {
+      console.log('📤 ChatBox: Sending message:', {
+        hash_slug: selectedChatData.hash_slug,
+        message: messageText,
+        token: token ? 'present' : 'missing'
+      });
+      
       const response = await fetch(SEND_TEXT_API, {
         method: 'POST',
         headers: {
@@ -512,14 +499,14 @@ export const ChatBox = ({
         }),
       });
 
-      if (response.ok) {
-        // toast.success('Message sent successfully');
-        // Remove temp message immediately - server will broadcast the real message
-        setLocalMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-        
-        // Don't send via WebSocket - server will broadcast automatically
-        // This prevents duplicate messages from appearing
+      console.log('📤 ChatBox: Response status:', response.status);
+      console.log('📤 ChatBox: Response ok:', response.ok);
 
+      if (response.ok) {
+        console.log('📤 ChatBox: Message sent successfully');
+        // toast.success('Message sent successfully');
+        // Server will broadcast the message via WebSocket automatically
+        
         // Notify global channels about new message for inbox updates
         sendWSMessage('new-message-global', {
           chat_hash_slug: selectedChatData.hash_slug,
@@ -528,37 +515,19 @@ export const ChatBox = ({
           timestamp: new Date().toISOString()
         });
       } else {
-        console.error('Failed to send message');
+        const errorText = await response.text();
+        console.error('📤 ChatBox: Failed to send message:', response.status, errorText);
         toast.error('Failed to send message');
-        setLocalMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('📤 ChatBox: Error sending message:', error);
       toast.error('Error sending message');
-      // Remove the temp message if sending failed
-      setLocalMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
     } finally {
       setIsSending(false);
     }
   };
 
-  // Clear local messages when chat data is refetched (but avoid clearing on every render)
-  useEffect(() => {
-    if (singleChatData?.chat.chat_details) {
-      // Only clear local messages if we're switching to a different chat
-      // This prevents clearing messages unnecessarily on refetches
-      setLocalMessages(prev => {
-        // Keep local messages that haven't been confirmed by server yet
-        return prev.filter(localMsg => {
-          // If server data doesn't contain this local message, keep it
-          return !singleChatData.chat.chat_details.some(serverMsg => 
-            serverMsg.id === localMsg.id || 
-            (serverMsg.message === localMsg.message && serverMsg.created_at === localMsg.created_at)
-          );
-        });
-      });
-    }
-  }, [singleChatData?.chat?.id, singleChatData?.chat?.chat_details]); // Trigger when chat ID or data changes
+  // No need to manage local messages anymore - useSingleChat handles real-time updates
 
 
   // Only scroll smoothly when new chat is selected, not when data refetches
@@ -576,10 +545,9 @@ export const ChatBox = ({
       }
       setHasText(false);
       
-      // Switch WebSocket to new chat channels
-      switchToChat(selectedChatData.hash_slug);
+      // WebSocket subscription is now handled by useSingleChat hook
     }
-  }, [selectedChatData, switchToChat]);
+  }, [selectedChatData, scrollToBottom]);
 
   // Keep scroll at bottom when new messages arrive (but not on every data update)
   useEffect(() => {
@@ -588,7 +556,7 @@ export const ChatBox = ({
       const cleanup = debouncedScrollToBottom();
       return cleanup;
     }
-  }, [allMessages.length, debouncedScrollToBottom]); // Only trigger when message count changes
+  }, [allMessages.length, debouncedScrollToBottom, scrollToBottom]); // Only trigger when message count changes
 
   // Close emoji and attachment sections when clicking outside
   useEffect(() => {
@@ -814,7 +782,7 @@ export const ChatBox = ({
                             }`}>
                             <div className="flex items-center gap-2">
                               <p className=" leading-relaxed font-medium">{message.message}</p>
-                              {isAdmin && localMessages.some(localMsg => localMsg.id === message.id) && (
+                              {isAdmin && isSending && (
                                 <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
                               )}
                             </div>

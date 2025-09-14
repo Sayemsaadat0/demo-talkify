@@ -4,6 +4,8 @@ import { ME_API } from "@/api/api";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { setUser } from "@/redux/features/authSlice";
+import { useRouter } from "next/navigation";
+import { handleApiError, createErrorHandler } from "@/lib/handleApiError";
 // import { setCredentials } from "@/redux/features/authSlice";
 
 export const useGetMe = () => {
@@ -12,6 +14,7 @@ export const useGetMe = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const dispatch = useDispatch();
+  const router = useRouter();
 
   const token = useSelector((state: RootState) => state?.auth?.token);
 
@@ -29,6 +32,11 @@ export const useGetMe = () => {
       });
 
       if (!response.ok) {
+        // Handle 401 errors with automatic redirect
+        const errorHandler = createErrorHandler(dispatch, router);
+        if (handleApiError(response, errorHandler)) {
+          return; // Exit early if 401 was handled
+        }
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
@@ -48,7 +56,7 @@ export const useGetMe = () => {
     } finally {
       setLoading(false);
     }
-  }, [dispatch, token]);
+  }, [dispatch, token, router]);
 
   // initial fetch
   useEffect(() => {

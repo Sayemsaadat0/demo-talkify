@@ -99,7 +99,7 @@ export const InboxContent = () => {
    const perPage = 20
  
   const { data: inboxList, loading , refetch } = useGetInboxList(status, 1, perPage)
-  const { data: singleChatData, loading: singleChatLoading } = useSingleChat(selectedChatData?.hash_slug)
+  const { data: singleChatData, loading: singleChatLoading, markMessageAsSent } = useSingleChat(selectedChatData?.hash_slug)
   const { subscribeToInboxUpdates, unsubscribeFromInboxUpdates } = useSocketProvider()
  
   const [selectedMessage, setSelectedMessage] = useState<number | null>(null)
@@ -411,6 +411,7 @@ export const InboxContent = () => {
             setSelectedChatData={setSelectedChatData}
             setMobileView={setMobileView}
             setStatus={setStatus}
+            markMessageAsSent={markMessageAsSent}
           />
 
           {showUserDetails && (
@@ -468,6 +469,7 @@ export const InboxContent = () => {
               setSelectedChatData={setSelectedChatData}
               setMobileView={setMobileView}
               setStatus={setStatus}
+              markMessageAsSent={markMessageAsSent}
             />
           )}
 

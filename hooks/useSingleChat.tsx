@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { SINGLE_CHAT_API } from '@/api/api';
@@ -19,7 +18,7 @@ export interface ChatDetail {
   created_at: string;
   updated_at: string;
   file_count: number;
-  file_list: any[];
+  file_list: unknown[];
 }
 
 export interface Chat {
@@ -85,9 +84,12 @@ export const useSingleChat = (hashSlug?: string) => {
   const [data, setData] = useState<SingleChatData | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [realtimeMessages, setRealtimeMessages] = useState<ChatDetail[]>([]);
+  const isSubscribed = useRef(false);
+  const recentlySentMessages = useRef<Set<string>>(new Set());
 
   const token = useSelector((state: RootState) => state?.auth?.token);
-  const { subscribeToChannel, unsubscribeFromChannel } = useSocket();
+  const { subscribeToChannel, unsubscribeFromChannel, getConnectionStatus } = useSocket();
 
   const fetchSingleChat = useCallback(async (slug: string) => {
     try {
@@ -108,6 +110,10 @@ export const useSingleChat = (hashSlug?: string) => {
 
       const json: SingleChatResponse = await response.json();
       setData(json?.data);
+      
+      // Clear realtime messages and recently sent messages when fetching fresh data
+      setRealtimeMessages([]);
+      recentlySentMessages.current.clear();
     } catch (err) {
       console.error("Error fetching single chat", err);
       setError("Failed to fetch chat details");
@@ -117,139 +123,87 @@ export const useSingleChat = (hashSlug?: string) => {
     }
   }, [token]);
 
-  // Real-time message handler for chat updates
-  const handleRealTimeMessage = useCallback((messageData: any) => {
-    console.log("💬 useSingleChat: Real-time message received:", messageData);
+  // Handle incoming WebSocket messages
+  const handleRealtimeMessage = useCallback((messageData: unknown) => {
+    console.log("📨 useSingleChat: Real-time message received:", messageData);
     
-    if (!data) return;
+    const data = messageData as { message?: Record<string, unknown> };
+    if (data.message) {
+      const msg = data.message;
+      const messageText = (msg.message as string) || (msg.content as string) || '';
+      const messageType = (msg.type as string) || (msg.sender_type as string) || 'user';
+      
+      // Temporarily disable filtering to debug
+      console.log("📨 useSingleChat: Message details:", {
+        messageText,
+        messageType,
+        isAdmin: messageType === 'admin',
+        isRecentlySent: recentlySentMessages.current.has(messageText),
+        recentlySentMessages: Array.from(recentlySentMessages.current)
+      });
+      
+      // Check if this is a message we recently sent (admin type with same content)
+      if (messageType === 'admin' && recentlySentMessages.current.has(messageText)) {
+        console.log("📨 useSingleChat: Skipping recently sent message:", messageText);
+        return;
+      }
+      
+      const newMessage: ChatDetail = {
+        id: (msg.id as number) || Date.now(),
+        property_id: (msg.property_id as number) || 0,
+        chat_id: (msg.chat_id as number) || 0,
+        name: (msg.name as string) || null,
+        contact: (msg.contact as string) || null,
+        message: messageText,
+        link: (msg.link as string) || null,
+        file: (msg.file as string) || null,
+        status: (msg.status as number) || 1,
+        type: messageType,
+        created_at: (msg.created_at as string) || (msg.timestamp as string) || new Date().toISOString(),
+        updated_at: (msg.updated_at as string) || new Date().toISOString(),
+        file_count: (msg.file_count as number) || 0,
+        file_list: (msg.file_list as unknown[]) || []
+      };
 
-    // Extract message content - handle both string and object formats
-    let messageContent = '';
-    let messageType = 'visitor';
-    let senderName = null;
-    let messageTime = new Date().toISOString();
-    let fileCount = 0;
-    let fileList: any[] = [];
-
-    if (typeof messageData.message === 'string') {
-      // Direct string message
-      messageContent = messageData.message;
-      messageType = messageData.type || 'visitor';
-      senderName = messageData.sender_name || null;
-      messageTime = messageData.time || messageTime;
-      fileCount = messageData.file_count || 0;
-      fileList = messageData.file_list || [];
-    } else if (messageData.message && typeof messageData.message === 'object') {
-      // Message is an object with nested structure
-      messageContent = messageData.message.message || '';
-      messageType = messageData.message.type || 'visitor';
-      senderName = messageData.message.sender_name || null;
-      messageTime = messageData.message.time || messageTime;
-      fileCount = messageData.message.file_count || 0;
-      fileList = messageData.message.file_list || [];
-    } else {
-      console.warn("💬 useSingleChat: Invalid message format:", messageData);
-      return;
-    }
-
-    if (!messageContent) return;
-
-    // Parse the time properly - handle different time formats
-    let parsedTime = messageTime;
-    if (messageTime && typeof messageTime === 'string' && messageTime !== new Date().toISOString()) {
-      try {
-        // Handle formats like "14 Sep 06.09am"
-        if (messageTime.includes('am') || messageTime.includes('pm')) {
-          // Convert to ISO format
-          const now = new Date();
-          const currentYear = now.getFullYear();
-          const timeStr = messageTime.replace(/(\d{1,2})\s+(\w{3})\s+(\d{1,2}\.\d{2})(am|pm)/, (match, day, month, time, period) => {
-            const monthMap: { [key: string]: string } = {
-              'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
-              'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
-              'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
-            };
-            const [hours, minutes] = time.split('.');
-            let hour24 = parseInt(hours);
-            if (period === 'pm' && hour24 !== 12) hour24 += 12;
-            if (period === 'am' && hour24 === 12) hour24 = 0;
-            return `${currentYear}-${monthMap[month]}-${day.padStart(2, '0')}T${hour24.toString().padStart(2, '0')}:${minutes.padStart(2, '0')}:00.000Z`;
-          });
-          parsedTime = timeStr;
+      // Check if message already exists in realtime messages
+      setRealtimeMessages(prev => {
+        const exists = prev.some(existingMsg => 
+          existingMsg.id === newMessage.id || 
+          (existingMsg.message === newMessage.message && existingMsg.created_at === newMessage.created_at)
+        );
+        
+        if (exists) {
+          console.log("📨 useSingleChat: Message already exists, skipping duplicate");
+          return prev;
         }
         
-        // Validate the parsed date
-        const testDate = new Date(parsedTime);
-        if (isNaN(testDate.getTime())) {
-          parsedTime = new Date().toISOString();
-        }
-      } catch (error) {
-        console.warn("💬 useSingleChat: Failed to parse time:", messageTime, error);
-        parsedTime = new Date().toISOString();
-      }
+        console.log("📨 useSingleChat: Adding new real-time message");
+        return [...prev, newMessage];
+      });
     }
+  }, []);
 
-    // Create new message object from WebSocket data
-    const newMessage: ChatDetail = {
-      id: Date.now(), // Temporary ID for real-time messages
-      property_id: data.chat.property_id,
-      chat_id: data.chat.id,
-      name: senderName,
-      contact: null,
-      message: messageContent,
-      link: null,
-      file: null,
-      status: 1,
-      type: messageType,
-      created_at: parsedTime,
-      updated_at: new Date().toISOString(),
-      file_count: fileCount,
-      file_list: fileList
-    };
-
-    // Add new message to chat details
-    setData(prevData => {
-      if (!prevData) return prevData;
-
-      // Check if message already exists (prevent duplicates)
-      const messageExists = prevData.chat.chat_details.some(
-        msg => msg.message === messageContent && 
-               Math.abs(new Date(msg.created_at).getTime() - new Date(parsedTime).getTime()) < 5000
-      );
-
-      if (messageExists) {
-        console.log("💬 useSingleChat: Message already exists, skipping");
-        return prevData;
-      }
-
-      console.log("💬 useSingleChat: Adding new message to chat:", newMessage);
-
-      return {
-        ...prevData,
-        chat: {
-          ...prevData.chat,
-          chat_details: [...prevData.chat.chat_details, newMessage],
-          total_message: prevData.chat.total_message + 1,
-          updated_at: new Date().toISOString()
-        }
-      };
-    });
-  }, [data]);
-
-  // Subscribe to real-time chat messages
+  // Subscribe to WebSocket events for real-time updates
   useEffect(() => {
-    if (hashSlug && token) {
-      console.log(`💬 useSingleChat: Subscribing to chat messages for ${hashSlug}`);
+    if (hashSlug && !isSubscribed.current) {
+      console.log(`📡 useSingleChat: Subscribing to real-time updates for ${hashSlug}`);
+      console.log(`📡 useSingleChat: WebSocket connection status:`, getConnectionStatus());
+      const channel = `chatting-event.${hashSlug}`;
+      console.log(`📡 useSingleChat: Channel: ${channel}`);
+      subscribeToChannel(channel, handleRealtimeMessage);
+      isSubscribed.current = true;
       
-      const chatChannel = `chatting-event.${hashSlug}`;
-      subscribeToChannel(chatChannel, handleRealTimeMessage);
-
       return () => {
-        console.log(`💬 useSingleChat: Unsubscribing from chat messages for ${hashSlug}`);
-        unsubscribeFromChannel(chatChannel);
+        console.log(`📡 useSingleChat: Unsubscribing from real-time updates for ${hashSlug}`);
+        unsubscribeFromChannel(channel);
+        isSubscribed.current = false;
       };
+    } else if (!hashSlug) {
+      console.log(`📡 useSingleChat: No hashSlug provided, skipping subscription`);
+    } else if (isSubscribed.current) {
+      console.log(`📡 useSingleChat: Already subscribed to ${hashSlug}`);
     }
-  }, [hashSlug, token, subscribeToChannel, unsubscribeFromChannel, handleRealTimeMessage]);
+  }, [hashSlug, subscribeToChannel, unsubscribeFromChannel, handleRealtimeMessage, getConnectionStatus]);
 
   // Automatically call fetchSingleChat when hashSlug changes
   useEffect(() => {
@@ -259,8 +213,41 @@ export const useSingleChat = (hashSlug?: string) => {
       // Clear data when no hashSlug is provided
       setData(undefined);
       setError(null);
+      setRealtimeMessages([]);
+      recentlySentMessages.current.clear();
     }
   }, [hashSlug, token, fetchSingleChat]);
 
-  return { data, loading, error, fetchSingleChat };
+  // Function to mark a message as recently sent
+  const markMessageAsSent = useCallback((messageText: string) => {
+    console.log("📝 useSingleChat: Marking message as sent:", messageText);
+    console.log("📝 useSingleChat: Current recently sent messages:", Array.from(recentlySentMessages.current));
+    recentlySentMessages.current.add(messageText);
+    console.log("📝 useSingleChat: After adding, recently sent messages:", Array.from(recentlySentMessages.current));
+    
+    // Remove from recently sent after 10 seconds to allow for server processing
+    setTimeout(() => {
+      recentlySentMessages.current.delete(messageText);
+      console.log("🗑️ useSingleChat: Removed message from recently sent:", messageText);
+      console.log("🗑️ useSingleChat: After removing, recently sent messages:", Array.from(recentlySentMessages.current));
+    }, 10000);
+  }, []);
+
+  // Combine server data with real-time messages
+  const combinedData = data ? {
+    ...data,
+    chat: {
+      ...data.chat,
+      chat_details: [...(data.chat.chat_details || []), ...realtimeMessages]
+    }
+  } : undefined;
+
+  return { 
+    data: combinedData, 
+    loading, 
+    error, 
+    fetchSingleChat,
+    realtimeMessages,
+    markMessageAsSent
+  };
 };

@@ -5,6 +5,9 @@ import { CHAT_INBOX_LIST_API } from "@/api/api";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useSocket } from "./useSocket";
+import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
+import { handleApiError, createErrorHandler } from "@/lib/handleApiError";
 
 // Type definitions for inbox list data
 export interface InboxChatItemType {
@@ -78,6 +81,8 @@ export const useGetInboxList = (
 
   const token = useSelector((state: RootState) => state.auth.token);
   const { subscribeToChannel, unsubscribeFromChannel } = useSocket();
+  const dispatch = useDispatch();
+  const router = useRouter();
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -89,7 +94,14 @@ export const useGetInboxList = (
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // Handle 401 errors with automatic redirect
+        const errorHandler = createErrorHandler(dispatch, router);
+        if (handleApiError(res, errorHandler)) {
+          return; // Exit early if 401 was handled
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const json: InboxListResponse = await res.json();
       setData(json.data);
     } catch (err) {
@@ -98,6 +110,7 @@ export const useGetInboxList = (
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, page, perPage, token]);
 
   // Handler for chat messages from any chat channel
