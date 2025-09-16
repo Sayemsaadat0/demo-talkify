@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { CHAT_INBOX_LIST_API } from "@/api/api";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
-import { useSocket } from "./useSocket";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { handleApiError, createErrorHandler } from "@/lib/handleApiError";
@@ -80,7 +79,6 @@ export const useGetInboxList = (
   const [error, setError] = useState<string | null>(null);
 
   const token = useSelector((state: RootState) => state.auth.token);
-  const { subscribeToChannel, unsubscribeFromChannel } = useSocket();
   const dispatch = useDispatch();
   const router = useRouter();
 
@@ -113,63 +111,12 @@ export const useGetInboxList = (
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, page, perPage, token]);
 
-  // Handler for chat messages from any chat channel
-  const handleChatMessage = useCallback((messageData: any) => {
-    console.log("📨 Chat message received:", messageData);
-    
-    setData(prevData => {
-      if (!prevData || !messageData.channel) return prevData;
-
-      // Extract hash_slug from channel name (e.g., "chatting-event.XDR51WPI0PTSUXG" -> "XDR51WPI0PTSUXG")
-      const hashSlug = messageData.channel.replace('chatting-event.', '');
-      
-      const updatedChats = prevData.chats.data.map(chat => {
-        if (chat.hash_slug === hashSlug) {
-          return {
-            ...chat,
-            total_message: chat.total_message + 1,
-            updated_at: new Date().toISOString()
-          };
-        }
-        return chat;
-      });
-
-      // Sort chats by updated_at (most recent first)
-      updatedChats.sort((a, b) => 
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      );
-
-      return {
-        ...prevData,
-        chats: {
-          ...prevData.chats,
-          data: updatedChats
-        }
-      };
-    });
-  }, []);
 
   useEffect(() => {
     if (!token) return;
 
     fetchData();
-
-    // Subscribe to general inbox updates
-    const inboxChannel = 'inbox-updates';
-    const inboxHandler = () => fetchData();
-
-    subscribeToChannel(inboxChannel, inboxHandler);
-
-    // Subscribe to all chatting events using a wildcard pattern
-    // Note: You might need to adjust this based on your WebSocket server's wildcard support
-    const chatChannel = 'chatting-event.*';
-    subscribeToChannel(chatChannel, handleChatMessage);
-
-    return () => {
-      unsubscribeFromChannel(inboxChannel);
-      unsubscribeFromChannel(chatChannel);
-    };
-  }, [token, fetchData, subscribeToChannel, unsubscribeFromChannel, handleChatMessage]);
+  }, [token, fetchData]);
 
 
   return { data, loading, error, refetch: fetchData };

@@ -2,11 +2,11 @@
 
 import React from "react"
 import { Bell, LogOut, User, Mail, Settings, Users, Receipt, Package, MessageSquare } from "lucide-react"
-import { useDispatch, useSelector } from "react-redux"
+import { useSelector } from "react-redux"
 import { RootState } from "@/redux/store"
 // import { toggleSidebar } from "@/redux/features/layoutSlice"
-import { logout } from "@/redux/features/authSlice"
 import { useRouter } from "next/navigation"
+import { useLogout } from "@/hooks/useLogout"
 
 // import { useRouter } from "next/navigation"
 import {
@@ -151,10 +151,9 @@ const directMenuItems: DropdownMenuDataItem[] = [
 ];
 
 export function DashboardHeader() {
-    const dispatch = useDispatch()
     const router = useRouter()
+    const { performLogout } = useLogout()
     // const isCollapsed = useSelector((state: RootState) => state.layout.isSidebarCollapsed)
-    const token = useSelector((state: RootState) => state.auth.token);
     const storedUser = useSelector((state: RootState) => state.auth.user as {
         firstname?: string;
         lastname?: string;
@@ -180,8 +179,7 @@ export function DashboardHeader() {
     }, [storedUser?.permissions]);
 
     const handleLogout = () => {
-        router.push('/login')
-        dispatch(logout())
+        performLogout('/login');
     }
 
     const handleNavigation = (href: string) => {

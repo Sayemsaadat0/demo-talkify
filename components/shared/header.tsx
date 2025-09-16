@@ -9,6 +9,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/redux/store";
 import { logout } from "@/redux/features/authSlice";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useLogout } from "@/hooks/useLogout";
 import { LOGOUT_API } from "@/api/api";
 
 const Header = () => {
@@ -21,6 +22,7 @@ const Header = () => {
   const router = useRouter()
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
+  const { performLogout } = useLogout();
   const { isAuthenticated, token, user } = useSelector((state: RootState) => state.auth);
 
   // Get user data from Redux store
@@ -40,32 +42,9 @@ const Header = () => {
 
 
 
-  const handleSignOut = async () => {
-    try {
-      // Get token from Redux state if needed
-
-      // Call logout API
-      const response = await fetch(LOGOUT_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`, // Include if your API requires authentication
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Logout failed');
-      }
-
-      dispatch(logout());
-      router.push('/');
-      setIsDropdownOpen(false);
-    } catch (error) {
-      console.error('Logout error:', error);
-      dispatch(logout());
-      router.push('/');
-      setIsDropdownOpen(false);
-    }
+  const handleSignOut = () => {
+    setIsDropdownOpen(false);
+    performLogout('/');
   };
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

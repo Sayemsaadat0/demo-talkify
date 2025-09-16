@@ -140,6 +140,29 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
+      
+      // Clear authentication data but preserve remember me email
+      if (typeof window !== 'undefined') {
+        // Store the remember me email before clearing
+        const rememberedEmail = localStorage.getItem('talkify-login-email');
+        
+        // Clear auth-related localStorage items except remember me
+        localStorage.removeItem('talkify-auth-token');
+        localStorage.removeItem('talkify-user-data');
+        
+        // Clear other auth-related items but preserve remember me
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+          if (key.startsWith('talkify-') && key !== 'talkify-login-email') {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        // Restore the remembered email if it existed
+        if (rememberedEmail) {
+          localStorage.setItem('talkify-login-email', rememberedEmail);
+        }
+      }
     },
     setIsAuthenticated: (state, action: PayloadAction<boolean>) => {
       state.isAuthenticated = action.payload;

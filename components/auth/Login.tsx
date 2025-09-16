@@ -107,15 +107,20 @@ const Login = () => {
       }
     } catch {}
 
-    setLoading(false);
     if (res.success) {
+      // Update Redux state immediately
       dispatch(loginSuccess({ user: res.user, token: res.token }));
+      
+      // Show success message
       toast.success("Login successful!");
-      // fetch(`${AUTH_REDIRECT}?token=${res.token}`);
-      // window.location.href = `${AUTH_REDIRECT}?token=${res.token}`;
-      // Optionally: do other things
+      
+      // Navigate to dashboard using Next.js router for better performance
       window.location.href = `/dashboard`;
+      
+      // Set loading to false after successful login
+      setLoading(false);
     } else {
+      setLoading(false);
       if (res.errors) {
         (Object.values(res.errors).flat() as string[]).forEach((msg) =>
           toast.error(msg)

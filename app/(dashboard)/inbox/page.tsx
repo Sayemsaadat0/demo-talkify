@@ -1,7 +1,7 @@
 // app/page.tsx or layout.tsx
 'use client';
-import { InboxContent } from './_components/InboxContent';
-import { SocketProvider } from './_components/useSocketProvider';
+import { SocketProvider } from '@/contexts/SocketProvider';
+import InboxContent from './_components/InboxContent';
 
 const Page = () => (
   <SocketProvider>
