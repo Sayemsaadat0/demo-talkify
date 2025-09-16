@@ -1,21 +1,26 @@
 'use client'
-import React from 'react';
+import React, { memo } from 'react';
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { RootState } from "@/redux/store"
 import NextTopLoader from 'nextjs-toploader';
 import AuthGuard from "@/components/auth/AuthGuard";
+import { SocketProvider } from "@/contexts/SocketProvider";
 
 import { useSelector } from "react-redux"
 import { cn } from "@/lib/utils"
 
-const Template = ({ children }: { children: React.ReactNode }) => {
+const DashboardLayout = memo(function DashboardLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
     const isCollapsed = useSelector((state: RootState) => state.layout.isSidebarCollapsed)
-
 
     return (
         <AuthGuard>
-            <div className="flex h-screen  relative">
+            <SocketProvider>
+                <div className="flex h-screen relative">
                 <NextTopLoader showSpinner={false} color="#2299DD" />
                 {/* Professional Noisy Background */}
                 <div
@@ -37,32 +42,30 @@ const Template = ({ children }: { children: React.ReactNode }) => {
 
                 {/* Content Layer */}
                 <div className="relative z-10 flex w-full h-full">
-                    <NextTopLoader showSpinner={false} color="#2299DD" />
                     {/* Fixed Sidebar */}
-                    <div className="fixed  left-0 z-50">
+                    <div className="fixed left-0 z-50">
                         <DashboardSidebar />
                     </div>
 
                     {/* Main Content */}
                     <div
                         className={cn(
-                            "flex-1 flex flex-col transition-all duration-300 ease-in-out ",
+                            "flex-1 flex flex-col transition-all duration-300 ease-in-out",
                             isCollapsed ? "pl-16" : "pl-72"
                         )}
-
                     >
                         <DashboardHeader />
-                        <main className="flex-1 overflow-auto p-3">
-                            <>
-                                {children}
-                            </>
-
+                        <main className="flex-1 overflow-auto">
+                            {children}
                         </main>
                     </div>
                 </div>
             </div>
+            </SocketProvider>
         </AuthGuard>
     )
-}
+});
 
-export default Template
+DashboardLayout.displayName = 'DashboardLayout';
+
+export default DashboardLayout;

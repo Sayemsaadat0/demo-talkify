@@ -16,12 +16,13 @@ interface Props {
   chatData: InboxChatItemType;
 }
 
-export const ChatBox: React.FC<Props> = ({ hash_slug, chatStatus, chatData }) => {
+export const ChatBoxDemo: React.FC<Props> = ({ hash_slug, chatStatus, chatData }) => {
   const token = useSelector((state: RootState) => state.auth.token);
   const [messages, setMessages] = useState<ChatDetailsType[]>([]);
   const [input, setInput] = useState('');
   const [status, setStatus] = useState(chatStatus);
   const [isTyping, setIsTyping] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
   // const [showMediaPanel, setShowMediaPanel] = useState(false);
   const [showEmojiPanel, setShowEmojiPanel] = useState(false);
   const [showFilePanel, setShowFilePanel] = useState(false);
@@ -31,40 +32,94 @@ export const ChatBox: React.FC<Props> = ({ hash_slug, chatStatus, chatData }) =>
   // Replace with actual logged-in user id
 
   const messageChannel = `chatting-event.${hash_slug}`;
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Function to keep scroll at bottom
-  const keepScrollAtBottom = () => {
+  const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
     if (messagesContainerRef.current) {
       const container = messagesContainerRef.current;
-      container.scrollTop = container.scrollHeight;
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+      const maxScroll = scrollHeight - clientHeight;
+      
+      if (behavior === 'smooth') {
+        container.scrollTo({
+          top: maxScroll,
+          behavior: 'smooth'
+        });
+      } else {
+        container.scrollTop = maxScroll;
+      }
+      setIsAtBottom(true);
     }
   };
 
-  // Keep scroll at bottom when messages change
+  // const scrollToBottomInstant = () => {
+  //   if (messagesContainerRef.current) {
+  //     const container = messagesContainerRef.current;
+  //     const scrollHeight = container.scrollHeight;
+  //     const clientHeight = container.clientHeight;
+  //     container.scrollTop = scrollHeight - clientHeight;
+  //     setIsAtBottom(true);
+  //   }
+  // };
+
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 5; // 5px threshold
+      setIsAtBottom(isNearBottom);
+    }
+  };
+
+  // Always scroll to bottom when new messages arrive
   useEffect(() => {
-    // Use multiple methods to ensure scroll happens after DOM updates
-    setTimeout(keepScrollAtBottom, 0);
-    setTimeout(keepScrollAtBottom, 10);
-    requestAnimationFrame(keepScrollAtBottom);
+    if (messagesContainerRef.current && messages.length > 0) {
+      // Use multiple methods to ensure scroll happens
+      const scrollToBottomNow = () => {
+        const container = messagesContainerRef.current;
+        if (container) {
+          const scrollHeight = container.scrollHeight;
+          const clientHeight = container.clientHeight;
+          container.scrollTop = scrollHeight - clientHeight;
+          setIsAtBottom(true);
+        }
+      };
+
+      // Try multiple times to ensure scroll happens
+      setTimeout(scrollToBottomNow, 0);
+      setTimeout(scrollToBottomNow, 10);
+      setTimeout(scrollToBottomNow, 50);
+      requestAnimationFrame(scrollToBottomNow);
+    }
   }, [messages]);
 
-  // Keep scroll at bottom when chat changes
+  // Scroll to bottom when chat changes (new conversation)
   useEffect(() => {
-    // Use multiple methods to ensure scroll happens after DOM updates
-    setTimeout(keepScrollAtBottom, 0);
-    setTimeout(keepScrollAtBottom, 10);
-    setTimeout(keepScrollAtBottom, 50);
-    requestAnimationFrame(keepScrollAtBottom);
+    const forceScrollToBottom = () => {
+      if (messagesContainerRef.current) {
+        const container = messagesContainerRef.current;
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = container.clientHeight;
+        container.scrollTop = scrollHeight - clientHeight;
+        setIsAtBottom(true);
+      }
+    };
+    
+    setTimeout(forceScrollToBottom, 100);
+    setTimeout(forceScrollToBottom, 200);
   }, [hash_slug]);
 
-
-
-
-
-
-
+  // Add scroll event listener
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
 
   // typing event listener
   useEffect(() => {
@@ -84,14 +139,25 @@ export const ChatBox: React.FC<Props> = ({ hash_slug, chatStatus, chatData }) =>
     const initChat = async () => {
       if (!token) return;
 
-        const res = await getMessages(hash_slug, token);
-        if (res?.data?.chat?.chat_details) {
-          setMessages(res.data.chat.chat_details);
-          // Ensure scroll is at bottom after loading messages
-          setTimeout(keepScrollAtBottom, 100);
-          setTimeout(keepScrollAtBottom, 200);
-          requestAnimationFrame(keepScrollAtBottom);
-        }
+      const res = await getMessages(hash_slug, token);
+      if (res?.data?.chat?.chat_details) {
+        setMessages(res.data.chat.chat_details);
+        // Force scroll to bottom after loading messages
+        const forceScrollToBottom = () => {
+          if (messagesContainerRef.current) {
+            const container = messagesContainerRef.current;
+            const scrollHeight = container.scrollHeight;
+            const clientHeight = container.clientHeight;
+            container.scrollTop = scrollHeight - clientHeight;
+            setIsAtBottom(true);
+          }
+        };
+        
+        setTimeout(forceScrollToBottom, 100);
+        setTimeout(forceScrollToBottom, 200);
+        setTimeout(forceScrollToBottom, 300);
+        requestAnimationFrame(forceScrollToBottom);
+      }
     };
     initChat();
   }, [hash_slug, token]);
@@ -345,42 +411,39 @@ export const ChatBox: React.FC<Props> = ({ hash_slug, chatStatus, chatData }) =>
       <div 
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto p-6 space-y-4 relative"
+        style={{ scrollBehavior: 'smooth' }}
       >
         {messages.map((msg, index) => {
           const isOutgoing = msg.type !== 'visitor'; // visitor = left, else right
-          const isInfo = msg.type === 'info';
 
           return (
             <div
               key={index}
-              className={`flex ${isInfo ? 'justify-center' : (isOutgoing ? 'justify-end' : 'justify-start')}`}
+              className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}
             >
               <div className={`flex items-end space-x-2 ${isOutgoing ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                {!isOutgoing && !isInfo && (
+                {!isOutgoing && (
                   <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
                     <span className="text-gray-600 font-medium text-sm">{msg.name?.[0] || 'V'}</span>
                   </div>
                 )}
                 <div
-                  className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${isInfo
-                    ? 'bg-gray-200 text-gray-700 text-center'
-                    : isOutgoing
+                  className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${isOutgoing
                     ? 'bg-blue-600 text-white rounded-br-md'
                     : 'bg-gray-100 text-gray-900 rounded-bl-md'
                     }`}
                 >
-                  {!isOutgoing && !isInfo && (
+                  {!isOutgoing && (
                     <div className="text-xs font-medium text-gray-600 mb-1">{msg.name}</div>
                   )}
-                  <div className="">{msg.message}</div>
-                  <div className="text-xs text-gray-500">{new Date(msg.created_at).toLocaleTimeString()}</div>
-
+                  <div className="text-sm">{msg.message}sdss</div>
                 </div>
               </div>
             </div>
           );
         })}
 
+        <div ref={messagesEndRef} />
 
         {isTyping && (
           <div className="flex items-center space-x-2 text-gray-500">
@@ -397,6 +460,20 @@ export const ChatBox: React.FC<Props> = ({ hash_slug, chatStatus, chatData }) =>
           </div>
         )}
 
+        {/* Scroll to Bottom Button */}
+        {!isAtBottom && (
+          <div className="absolute bottom-20 right-6 z-10">
+            <button
+              onClick={() => scrollToBottom('smooth')}
+              className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
+              title="Scroll to bottom"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Input - Only show when status is 1 */}

@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { memo } from "react"
 import { Bell, LogOut, User, Mail, Settings, Users, Receipt, Package, MessageSquare } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "@/redux/store"
@@ -150,10 +150,11 @@ const directMenuItems: DropdownMenuDataItem[] = [
     }
 ];
 
-export function DashboardHeader() {
+export const DashboardHeader = memo(() => {
     const router = useRouter()
     const { performLogout } = useLogout()
     // const isCollapsed = useSelector((state: RootState) => state.layout.isSidebarCollapsed)
+    const token = useSelector((state: RootState) => state.auth.token);
     const storedUser = useSelector((state: RootState) => state.auth.user as {
         firstname?: string;
         lastname?: string;
@@ -339,4 +340,6 @@ export function DashboardHeader() {
             </div>
         </header>
     )
-}
+});
+
+DashboardHeader.displayName = 'DashboardHeader';

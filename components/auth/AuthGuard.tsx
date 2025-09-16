@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { RootState } from '@/redux/store';
@@ -11,7 +11,7 @@ interface AuthGuardProps {
   redirectTo?: string;
 }
 
-const AuthGuard: React.FC<AuthGuardProps> = ({ 
+const AuthGuard: React.FC<AuthGuardProps> = memo(({ 
   children, 
   fallback,
   redirectTo = '/login' 
@@ -46,6 +46,8 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
   }
 
   return <>{children}</>;
-};
+});
+
+AuthGuard.displayName = 'AuthGuard';
 
 export default AuthGuard;

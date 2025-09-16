@@ -95,7 +95,7 @@ const ChatWidgetPage = () => {
   }
 
   return (
-    <div className="">
+    <div className="p-3">
       <div className="max-w-5xl mx-auto">
         <div className="flex border-b py-2 justify-between items-center">
           <p className="flex items-center gap-3">

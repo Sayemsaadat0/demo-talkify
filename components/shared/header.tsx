@@ -10,7 +10,6 @@ import { RootState } from "@/redux/store";
 import { logout } from "@/redux/features/authSlice";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLogout } from "@/hooks/useLogout";
-import { LOGOUT_API } from "@/api/api";
 
 const Header = () => {
   const searchParams = useSearchParams()
@@ -23,7 +22,7 @@ const Header = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
   const { performLogout } = useLogout();
-  const { isAuthenticated, token, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated,  user } = useSelector((state: RootState) => state.auth);
 
   // Get user data from Redux store
   const userData = user as {

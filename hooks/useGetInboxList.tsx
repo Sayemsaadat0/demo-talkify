@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 import { useCallback, useEffect, useState } from "react";
 import { CHAT_INBOX_LIST_API } from "@/api/api";

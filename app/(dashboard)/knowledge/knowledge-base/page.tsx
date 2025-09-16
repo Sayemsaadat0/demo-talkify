@@ -140,7 +140,7 @@ export default function KnowledgeBase() {
     }
   }, [token, refetch]);
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 p-3">
       {/* Header */}
       <div className='flex items-center justify-between mb-8'>
         <div className="flex items-center gap-3">

@@ -4,7 +4,8 @@ import { InboxChatItemType, InboxPagination } from '../_types/inbox.types';
 import { getInboxList } from '../_hooks/inbox.hooks';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
-import { FilterIcon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
+import { DatePicker } from '@/components/ui/DatePicker';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,7 @@ interface Props {
 }
 
 type FilterStatus = 'all' | 'unanswered' | 'answered' | 'closed' | 'read';
+type DateFilter = string | null; // Will store the actual date string
 
 export const ChatList: React.FC<Props> = ({ onSelect, selectedChat, onFilterChange }) => {
   const [inbox, setInbox] = useState<InboxChatItemType[]>([]);
@@ -27,20 +29,21 @@ export const ChatList: React.FC<Props> = ({ onSelect, selectedChat, onFilterChan
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
+  const [activeDateFilter, setActiveDateFilter] = useState<DateFilter>(null);
   const token = useSelector((state: RootState) => state.auth.token);
 
 
-  const fetchInbox = async (page = 1, append = false, status?: string) => {
+  const fetchInbox = async (page = 1, append = false, status?: string, datetrx?: string) => {
     if (!token) return;
     try {
       setLoading(true);
-      console.log('Fetching inbox with status:', status, 'page:', page);
-      const data = await getInboxList(page, token, status); // pass page and status to API
+      // console.log('Fetching inbox with status:', status, 'date:', datetrx, 'page:', page);
+      const data = await getInboxList(page, token, status, datetrx); // pass page, status and date to API
       if (data?.data?.chats) {
         const newChats = data.data.chats.data;
         setPagination(data.data.chats);
         setInbox((prev) => (append ? [...prev, ...newChats] : newChats));
-        console.log('Fetched chats:', newChats.length, 'with status filter:', status || 'all');
+        // console.log('Fetched chats:', newChats.length, 'with status filter:', status || 'all');
       }
     } catch (err) {
       console.error('Failed to fetch inbox:', err);
@@ -66,14 +69,20 @@ export const ChatList: React.FC<Props> = ({ onSelect, selectedChat, onFilterChan
     }
   };
 
+  // Get date from filter (now just returns the date string)
+  const getDateFromFilter = (filter: DateFilter): string | undefined => {
+    return filter || undefined;
+  };
+
   useEffect(() => {
     const statusParam = getStatusFromFilter(activeFilter);
-    fetchInbox(1, false, statusParam); // first page with filter
+    const dateParam = getDateFromFilter(activeDateFilter);
+    fetchInbox(1, false, statusParam, dateParam); // first page with filter
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, activeFilter]);
+  }, [token, activeFilter, activeDateFilter]);
 
   const handleFilterChange = (filter: FilterStatus) => {
-    console.log('Filter changed to:', filter);
+    // console.log('Filter changed to:', filter);
     setActiveFilter(filter);
     // Clear selected chat when filter changes
     if (onFilterChange) {
@@ -81,48 +90,22 @@ export const ChatList: React.FC<Props> = ({ onSelect, selectedChat, onFilterChan
     }
   };
 
-  const getStatusConfig = (status: number) => {
+  const handleDateChange = (date: string | null) => {
+    // console.log('Date changed to:', date);
+    setActiveDateFilter(date);
+    // Clear selected chat when filter changes
+    if (onFilterChange) {
+      onFilterChange();
+    }
+  };
+
+  const getStatusLabel = (status: number) => {
     switch (status) {
-      case 0: // Unanswered
-        return {
-          bgColor: 'bg-red-100',
-          borderColor: 'border-red-200',
-          textColor: 'text-red-800',
-          badgeColor: 'bg-red-200 text-red-800',
-          label: 'Unanswered'
-        };
-      case 1: // Answered
-        return {
-          bgColor: 'bg-white',
-          borderColor: 'border-gray-200',
-          textColor: 'text-gray-800',
-          badgeColor: 'bg-green-100 text-green-800',
-          label: 'Answered'
-        };
-      case 2: // Closed
-        return {
-          bgColor: 'bg-gray-100',
-          borderColor: 'border-gray-200',
-          textColor: 'text-gray-800',
-          badgeColor: 'bg-gray-100 text-gray-800',
-          label: 'Closed'
-        };
-      case 3: // Read
-        return {
-          bgColor: 'bg-blue-50/0',
-          borderColor: 'border-blue-200',
-          textColor: 'text-blue-800',
-          badgeColor: 'bg-blue-100 text-blue-800',
-          label: 'Read'
-        };
-      default:
-        return {
-          bgColor: 'bg-gray-50',
-          borderColor: 'border-gray-200',
-          textColor: 'text-gray-800',
-          badgeColor: 'bg-gray-100 text-gray-800',
-          label: 'Unknown'
-        };
+      case 0: return 'Unanswered';
+      case 1: return 'Answered';
+      case 2: return 'Closed';
+      case 3: return 'Read';
+      default: return 'Unknown';
     }
   };
 
@@ -135,53 +118,93 @@ export const ChatList: React.FC<Props> = ({ onSelect, selectedChat, onFilterChan
   ];
 
 
-  return (
-    <div className="w-80 h-full bg-white  border border-gray-200 flex flex-col">
-      {/* Header */}
-      <div className="p-2 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white ">
-        <h2 className="text-xl font-semibold">Inbox</h2>
-        <p className="text-blue-100 text-sm">{inbox.length} conversations</p>
-      </div>
 
-      <div className='flex py-3 px-2 items-center gap-1 border '>
-        {/* Search Bar */}
-        <div className="  flex-1 b">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg  focus:ring-0  outline-none transition-all duration-200"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+
+
+  // hiding the all message heding 
+
+  const [hide, setHide] = useState(false);
+
+  useEffect(() => {
+    const chatListContainer = document.querySelector('.chat-list-container');
+    
+    const handleScroll = () => {
+      if (chatListContainer) {
+        const scrollTop = chatListContainer.scrollTop;
+        if (scrollTop > 50) {
+          setHide(true);
+        } else {
+          setHide(false);
+        }
+      }
+    };
+
+    if (chatListContainer) {
+      chatListContainer.addEventListener("scroll", handleScroll);
+      return () => chatListContainer.removeEventListener("scroll", handleScroll);
+    }
+  }, []);
+
+  return (
+    <div className="w-80 h-full  flex flex-col">
+      {/* Header */}
+      {
+        !hide && <div className="p-3">
+          <h2 className="text-2xl font-semibold">All Messages</h2>
+          <p className="opacity-80">{inbox.length} conversations</p>
+        </div>
+      }
+
+
+      <div className='border-t py-3 px-2 space-y-5'>
+        <div className='flex  items-center gap-1  '>
+          {/* Search Bar */}
+          <div className="  flex-1 b">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border bg-white border-gray-200 rounded-lg  focus:ring-0  outline-none transition-all duration-200"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Filter Dropdown */}
+          {/* Date Filter Calendar */}
+          <div className="">
+            <DatePicker
+              value={activeDateFilter || undefined}
+              onChange={handleDateChange}
+              placeholder=""
+              className="border bg-white  rounded-lg"
+            />
+          </div>
+        </div>
+        {/* filtering */}
         <div className="">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className='border p-2.5 text-gray-500 rounded-lg'>
-                <FilterIcon size={20} />
+              <button className='flex text-sm item-center text-gray-500 '>
+                <ChevronDownIcon size={20} />
+                {activeFilter === 'all' ? 'All Conversations' : activeFilter === 'unanswered' ? 'Unanswered' : activeFilter === 'answered' ? 'Answered' : activeFilter === 'closed' ? 'Closed' : 'Read'}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-40">
               <DropdownMenuLabel className='absolute'></DropdownMenuLabel>
-              {/* <DropdownMenuSeparator /> */}
               {filterOptions.map((option) => (
                 <DropdownMenuItem
                   key={option.key}
                   onClick={() => handleFilterChange(option.key as FilterStatus)}
-                  className={`flex items-center justify-between cursor-pointer ${
-                    activeFilter === option.key 
-                      ? 'bg-blue-50 text-blue-700 font-medium' 
-                      : 'hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center justify-between cursor-pointer ${activeFilter === option.key
+                    ? 'bg-blue-50 text-blue-700 font-medium'
+                    : 'hover:bg-gray-50'
+                    }`}
                 >
                   <div className="flex items-center space-x-2">
                     {activeFilter === option.key && (
@@ -196,8 +219,10 @@ export const ChatList: React.FC<Props> = ({ onSelect, selectedChat, onFilterChan
         </div>
       </div>
 
+
+
       {/* Chat List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto no-scroll chat-list-container">
         {inbox.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <svg className="h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,19 +232,24 @@ export const ChatList: React.FC<Props> = ({ onSelect, selectedChat, onFilterChan
           </div>
         ) : (
           inbox.map((item) => {
-            const statusConfig = getStatusConfig(item.status);
             return (
               <div
                 key={item.id}
                 onClick={() => onSelect(item)}
                 className={`
-                  p-4 border-b cursor-pointer transition-all duration-300 relative
-                  ${selectedChat?.id === item.id 
-                    ? 'bg-gray-200 border-l-4 border-l-blue-500 shadow-md te transform ' 
-                    : statusConfig.bgColor
+                  p-4 border-b cursor-pointer transition-all duration-300 relative group
+                  ${selectedChat?.id === item.id
+                    ? 'bg-gray-200 border-l-4 border-l-blue-500 shadow-md transform'
+                    : item.status === 0
+                      ? 'bg-red-100 border-red-200'
+                      : item.status === 1
+                        ? 'bg-white border-gray-200'
+                        : item.status === 2
+                          ? 'bg-gray-100 border-gray-200'
+                          : item.status === 3
+                            ? 'bg-blue-50 border-blue-200'
+                            : 'bg-gray-50 border-gray-200'
                   }
-                  ${statusConfig.borderColor}
-                  group
                 `}
               >
                 <div className="flex items-start justify-between">
@@ -229,13 +259,31 @@ export const ChatList: React.FC<Props> = ({ onSelect, selectedChat, onFilterChan
                       {selectedChat?.id === item.id && (
                         <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                       )}
-                      <h3 className={`text-sm font-medium truncate ${
-                        selectedChat?.id === item.id ? 'text-blue-900' : statusConfig.textColor
-                      }`}>
+                      <h3 className={`text-sm font-medium truncate ${selectedChat?.id === item.id
+                        ? 'text-blue-900'
+                        : item.status === 0
+                          ? 'text-red-800'
+                          : item.status === 1
+                            ? 'text-gray-800'
+                            : item.status === 2
+                              ? 'text-gray-800'
+                              : item.status === 3
+                                ? 'text-blue-800'
+                                : 'text-gray-800'
+                        }`}>
                         {item.name || item.visitor}
                       </h3>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusConfig.badgeColor}`}>
-                        {statusConfig.label}
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${item.status === 0
+                        ? 'bg-red-200 text-red-800'
+                        : item.status === 1
+                          ? 'bg-green-100 text-green-800'
+                          : item.status === 2
+                            ? 'bg-gray-100 text-gray-800'
+                            : item.status === 3
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-800'
+                        }`}>
+                        {getStatusLabel(item.status)}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 truncate">
@@ -274,35 +322,36 @@ export const ChatList: React.FC<Props> = ({ onSelect, selectedChat, onFilterChan
             );
           })
         )}
+
+        {pagination?.next_page_url && (
+          <div className="p-4 border-t border-gray-200 bg-white">
+            <button
+              onClick={() => fetchInbox(pagination.current_page + 1, true, getStatusFromFilter(activeFilter), getDateFromFilter(activeDateFilter))}
+              disabled={loading}
+              className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center space-x-2"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Loading...</span>
+                </>
+              ) : (
+                <>
+                  <span>Load More</span>
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Load More Button */}
-      {pagination?.next_page_url && (
-        <div className="p-4 border-t border-gray-200">
-          <button
-            onClick={() => fetchInbox(pagination.current_page + 1, true, getStatusFromFilter(activeFilter))}
-            disabled={loading}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center space-x-2"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Loading...</span>
-              </>
-            ) : (
-              <>
-                <span>Load More</span>
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </>
-            )}
-          </button>
-        </div>
-      )}
+
     </div>
   );
 };

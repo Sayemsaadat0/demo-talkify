@@ -13,7 +13,7 @@ export default function InboxContent() {
 
   return (
     <>
-      <div className=' h-screen overflow-y-auto flex' style={{ maxHeight: 'calc(100vh - 115px)' }}>
+      <div className=' h-[calc(100dvh-80px)] overflow-y-auto flex' >
         {/* Left side: Inbox */}
         <ChatList 
           selectedChat={selectedChat} 

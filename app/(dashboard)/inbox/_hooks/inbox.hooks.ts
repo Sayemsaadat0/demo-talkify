@@ -12,7 +12,8 @@ import { InboxListResponse } from "../_types/inbox.types";
 export async function getInboxList(
   page: number = 1,
   token: string,
-  status?: string
+  status?: string,
+  datetrx?: string
 ): Promise<InboxListResponse | null> {
   try {
     const headers = {
@@ -23,6 +24,9 @@ export async function getInboxList(
     params.set('page', page.toString());
     if (status) {
       params.set('status', status);
+    }
+    if (datetrx) {
+      params.set('datetrx', datetrx);
     }
     const res = await fetch(`${CHAT_INBOX_LIST_API}?${params.toString()}`, { headers });
     if (!res.ok) throw new Error("Failed to fetch inbox list");

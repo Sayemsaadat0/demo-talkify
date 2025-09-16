@@ -1,10 +1,9 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import {
     ChevronRight,
     Home,
     Settings,
-    User,
     Inbox,
     Building2,
     Zap,
@@ -12,9 +11,11 @@ import {
     BookOpen,
     MessageCircle,
     Shield,
-    Users,
     ChevronLeft,
     List,
+    Crown,
+    UserPlus,
+    Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDispatch, useSelector } from "react-redux";
@@ -72,26 +73,28 @@ const DashboardSidebarItems: DashboardSidebarItem[] = [
         icon: Shield,
         children: [
             {
-                id: 'role-list',
-                label: 'Role List',
+                id: 'leads',
+                label: 'Leads',
                 role: "user_management",
-                icon: Users,
-                href: '/user-management/role-list'
+                icon: Target,
+                href: '/user-management/leads'
             },
             {
                 id: 'property-member',
                 label: 'Property Member',
                 role: "user_management",
-                icon: User,
+                icon: UserPlus,
                 href: '/user-management/property-member'
             },
             {
-                id: 'leads',
-                label: 'Leads',
+                id: 'role-list',
+                label: 'Role List',
                 role: "user_management",
-                icon: Users,
-                href: '/user-management/leads'
-            }
+                icon: Crown,
+                href: '/user-management/role-list'
+            },
+
+
         ]
     },
 
@@ -246,7 +249,7 @@ function DashboardSidebarItemComponent({
     );
 }
 
-export function DashboardSidebar() {
+export const DashboardSidebar = memo(() => {
     const dispatch = useDispatch()
 
     const links = [
@@ -257,6 +260,7 @@ export function DashboardSidebar() {
     const isCollapsed = useSelector((state: RootState) => state.layout.isSidebarCollapsed);
     const pathname = usePathname();
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+    const [previousPathname, setPreviousPathname] = useState(pathname);
 
     const filteredSidebarItems = React.useMemo(() => {
         if (!user) {
@@ -294,6 +298,15 @@ export function DashboardSidebar() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname]);
+
+    // Auto-collapse sidebar when initially navigating to inbox
+    useEffect(() => {
+        // Only collapse if we're navigating TO inbox from a different page
+        if (pathname === '/inbox' && previousPathname !== '/inbox' && !isCollapsed) {
+            dispatch(toggleSidebar());
+        }
+        setPreviousPathname(pathname);
+    }, [pathname, previousPathname, isCollapsed, dispatch]);
 
     const toggleExpanded = (id: string) => {
         setExpandedItems((prev) => {
@@ -378,4 +391,6 @@ export function DashboardSidebar() {
             </div>
         </div>
     );
-}
+});
+
+DashboardSidebar.displayName = 'DashboardSidebar';

@@ -5,7 +5,6 @@ import { logout } from '@/redux/features/authSlice';
 import { LOGOUT_API } from '@/api/api';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
-import toast from 'react-hot-toast';
 
 export const useLogout = () => {
   const dispatch = useDispatch();
